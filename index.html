@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+<title>Aibow - Love Sync</title>
+<script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0A0F14;color:white;font-family:sans-serif;position:fixed;width:100%;height:100%;display:flex;flex-direction:column}
+.app-header{flex-shrink:0;padding:8px 12px;background:linear-gradient(135deg,#1a1a2e,#16213e);display:flex;justify-content:space-between;align-items:center}
+.profile-icon{background:#252D37;border:none;color:#FF3366;font-size:1rem;padding:6px 12px;border-radius:20px;cursor:pointer}
+.menu-btn{background:#252D37;border:none;color:white;font-size:1.2rem;padding:6px 12px;border-radius:20px;cursor:pointer}
+.group-id-badge{background:#2A2A2A;padding:5px 12px;border-radius:20px;font-size:11px;color:#FF3366;border:1px solid #FF3366;cursor:pointer}
+.love-section{flex-shrink:0;padding:5px 12px}
+.love-header{position:relative;border-radius:15px;overflow:hidden;max-width:180px;margin:0 auto}
+.love-header img{width:100%;border-radius:15px}
+.video-fixed{flex-shrink:0;padding:8px 12px}
+.video-fixed iframe{width:100%;border-radius:12px;aspect-ratio:16/9}
+.online-container{background:#161C24;padding:8px 12px;margin:0;flex-shrink:0;border-top:1px solid #252D37;border-bottom:1px solid #252D37}
+.online-title{font-size:11px;color:#aaa;margin-bottom:5px}
+.online-user{display:inline-block;background:#252D37;padding:3px 10px;border-radius:15px;margin:3px;font-size:11px}
+.online-dot{display:inline-block;width:6px;height:6px;background:#4CAF50;border-radius:50%;margin-right:4px}
+.setup-panel{flex-shrink:0;padding:10px 12px;background:#161C24;border-bottom:1px solid #252D37}
+.setup-panel button{width:100%;padding:10px;margin:4px 0;border-radius:10px;border:none;background:linear-gradient(135deg,#FF3366,#FF6B9D);color:white;font-weight:bold;cursor:pointer}
+.setup-panel input{width:100%;padding:10px;margin:6px 0;border-radius:10px;border:none;background:#1A212A;color:white}
+.status{padding:8px;border-radius:8px;margin:8px 0;text-align:center;background:#1A212A;font-size:11px}
+.chat-scroll{flex:1;overflow-y:auto;padding:0}
+.chat{background:#161C24;padding:10px;min-height:100%}
+.message{background:#252D37;padding:8px 12px;border-radius:10px;margin-bottom:8px}
+.message-name{color:#FF3366;font-weight:bold;font-size:12px}
+.message-text{font-size:13px;word-break:break-word}
+.message-time{font-size:9px;color:#888;margin-top:3px}
+.input-fixed{flex-shrink:0;padding:10px 12px;background:#0A0F14;border-top:1px solid #252D37;display:flex;gap:8px}
+.input-fixed input{flex:1;padding:10px;border-radius:25px;border:none;background:#1A212A;color:white}
+.input-fixed button{padding:10px 18px;border-radius:25px;border:none;background:linear-gradient(135deg,#FF3366,#FF6B9D);color:white;font-weight:bold;cursor:pointer}
+.section{display:none}
+.section.active{display:flex;flex-direction:column;height:100%}
+.profile-card{background:#161C24;border-radius:20px;padding:20px;text-align:center;margin:20px}
+.profile-card span{color:#FF3366;font-weight:bold}
+.modal{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.95);display:flex;align-items:center;justify-content:center;z-index:1000}
+.modal-content{background:#1A212A;border-radius:20px;padding:25px;width:80%;max-width:300px;text-align:center;border:1px solid #FF3366}
+.hidden{display:none}
+.dropdown-menu{position:absolute;right:0;top:40px;background:#1A212A;border:1px solid #333;border-radius:12px;min-width:150px;z-index:100;display:none}
+.dropdown-menu button{width:100%;padding:10px;text-align:left;background:none;border-radius:0}
+.menu-container{position:relative;display:inline-block}
+</style>
+</head>
+<body>
+
+<!-- Sync Section -->
+<div class="section active" id="syncSection">
+    <div class="app-header">
+        <button class="profile-icon" id="profileBtnFromSync">👤 Profile</button>
+        <div style="display:flex; gap:8px; align-items:center;">
+            <div id="groupIdContainer" style="display:none;"><span id="groupIdBadge" class="group-id-badge" onclick="copyGroupId()"></span></div>
+            <div class="menu-container">
+                <button class="menu-btn" id="menuBtn">⋮</button>
+                <div class="dropdown-menu" id="dropdownMenu">
+                    <button id="shareGroupBtn">📤 Share Group</button>
+                    <button id="leaveGroupBtn" style="color:#FF5252">🚪 Leave Group</button>
+                    <button id="closeGroupBtn" style="color:#FF5252;display:none">🗑️ Close Group</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="love-section">
+        <div class="love-header" id="loveHeader">
+            <img src="https://i.ibb.co/KxWt79kF/IMG-20260423-115229.png" id="coupleImage">
+        </div>
+    </div>
+
+    <div class="video-fixed">
+        <iframe id="videoPlayer" src="https://www.youtube.com/embed/dQw4w9WgXcQ?autoplay=1" allowfullscreen></iframe>
+    </div>
+
+    <div id="setupPanel" class="setup-panel">
+        <button id="createBtn">✨ Create Group</button>
+        <button id="joinBtn" style="background:#2A313C;">🔗 Join Group</button>
+        <input id="groupIdInput" placeholder="Enter Group ID">
+        <div class="status" id="status">⚡ Connecting...</div>
+    </div>
+
+    <div id="onlineContainer" class="online-container" style="display:none;">
+        <div class="online-title">👥 Online Members</div>
+        <div id="onlineList"></div>
+    </div>
+
+    <div class="chat-scroll">
+        <div class="chat" id="chat"></div>
+    </div>
+
+    <div class="input-fixed">
+        <input id="msgInput" placeholder="Type message...">
+        <button id="sendBtn">Send</button>
+    </div>
+
+    <div id="adminPanel" style="display:none; padding:8px 12px;">
+        <input id="videoUrl" placeholder="Admin: YouTube link">
+        <button id="playBtn">▶ Play</button>
+    </div>
+</div>
+
+<!-- Profile Section -->
+<div class="section" id="profileSection">
+    <div class="app-header" style="justify-content:space-between;">
+        <button class="profile-icon" id="backToSyncBtn" style="background:#252D37;">◀ Back</button>
+        <span style="font-size:1rem; color:#FF3366;">Profile</span>
+        <div style="width:50px;"></div>
+    </div>
+    <div style="flex:1; overflow-y:auto; padding:20px;">
+        <div style="text-align:center; margin-bottom:20px;">
+            <div style="font-size:60px; background:linear-gradient(135deg,#FF3366,#FF6B9D); width:80px; height:80px; border-radius:50%; display:flex; align-items:center; justify-content:center; margin:0 auto 15px auto;">💘</div>
+        </div>
+        <div style="background:#161C24; border-radius:20px; padding:20px; margin-bottom:20px;">
+            <p style="margin-bottom:15px; font-size:16px;">Your Name: <span id="displayName" style="color:#FF3366; font-weight:bold"></span></p>
+            <button id="editProfileBtn" style="width:100%; padding:12px; background:linear-gradient(135deg,#FF3366,#FF6B9D); border:none; border-radius:25px; color:white; font-weight:bold; cursor:pointer;">✏️ Change Name</button>
+        </div>
+        <div style="background:#161C24; border-radius:20px; padding:20px;">
+            <h3 style="margin-bottom:15px; font-size:16px;">📊 Stats</h3>
+            <div style="display:flex; justify-content:space-between; margin-bottom:12px;">
+                <span>📨 Messages Sent</span>
+                <span id="msgCount" style="color:#FF3366; font-weight:bold">0</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; margin-bottom:12px;">
+                <span>👥 Groups Joined</span>
+                <span id="groupCount" style="color:#FF3366; font-weight:bold">0</span>
+            </div>
+            <div style="display:flex; justify-content:space-between;">
+                <span>🎵 Videos Played</span>
+                <span id="videoCount" style="color:#FF3366; font-weight:bold">0</span>
+            </div>
+        </div>
+        <div style="text-align:center; margin-top:20px; font-size:10px; color:#555;">Aibow v1.0 | 💘 Made with Love</div>
+    </div>
+</div>
+
+<!-- Modals -->
+<div id="nameModal" class="modal hidden"><div class="modal-content"><h3>Change Name</h3><input type="text" id="newNameInput"><div style="display:flex;gap:10px;margin-top:15px"><button id="modalConfirmBtn">Save</button><button id="modalCancelBtn">Cancel</button></div></div></div>
+<div id="confirmModal" class="modal hidden"><div class="modal-content"><h3 id="confirmTitle">Confirm</h3><p id="confirmMessage"></p><div style="display:flex;gap:10px;margin-top:15px"><button id="confirmOkBtn">Yes</button><button id="confirmCancelBtn">No</button></div></div></div>
+<div id="alertModal" class="modal hidden"><div class="modal-content"><h3>Alert</h3><p id="alertMessage"></p><button id="alertOkBtn">OK</button></div></div>
+
+<script>
+const BACKEND_URL = "https://aibow-backend-1.onrender.com";
+let socket = null, groupId = null, isAdmin = false;
+let currentUsername = localStorage.getItem("aibow_username") || "User_" + Math.floor(Math.random() * 1000);
+localStorage.setItem("aibow_username", currentUsername);
+document.getElementById('displayName').innerText = currentUsername;
+
+// Stats
+let msgCount = parseInt(localStorage.getItem("aibow_msgCount") || 0);
+let groupCount = parseInt(localStorage.getItem("aibow_groupCount") || 0);
+let videoCount = parseInt(localStorage.getItem("aibow_videoCount") || 0);
+function updateStats(){
+    document.getElementById('msgCount').innerText = msgCount;
+    document.getElementById('groupCount').innerText = groupCount;
+    document.getElementById('videoCount').innerText = videoCount;
+}
+updateStats();
+
+function showAlert(msg){
+    document.getElementById('alertMessage').innerText = msg;
+    document.getElementById('alertModal').classList.remove('hidden');
+}
+function showConfirm(title,msg,onYes){
+    window._confirmCallback = onYes;
+    document.getElementById('confirmTitle').innerText = title;
+    document.getElementById('confirmMessage').innerText = msg;
+    document.getElementById('confirmModal').classList.remove('hidden');
+}
+document.getElementById('alertOkBtn').onclick = () => document.getElementById('alertModal').classList.add('hidden');
+document.getElementById('confirmOkBtn').onclick = () => {
+    if(window._confirmCallback) window._confirmCallback();
+    document.getElementById('confirmModal').classList.add('hidden');
+};
+document.getElementById('confirmCancelBtn').onclick = () => document.getElementById('confirmModal').classList.add('hidden');
+
+function copyGroupId(){
+    if(groupId){
+        let inp = document.createElement("input");
+        inp.value = groupId;
+        document.body.appendChild(inp);
+        inp.select();
+        document.execCommand("copy");
+        inp.remove();
+        showAlert("✅ Copied: " + groupId);
+    }
+}
+
+function addMessage(user,text,time){
+    let div = document.getElementById('chat');
+    div.innerHTML += `<div class="message"><span class="message-name">${escapeHtml(user)}</span><br><span class="message-text">${escapeHtml(text)}</span><span class="message-time"> ${time || new Date().toLocaleTimeString()}</span></div>`;
+    div.scrollTop = div.scrollHeight;
+    if(user === currentUsername){
+        msgCount++;
+        localStorage.setItem("aibow_msgCount", msgCount);
+        updateStats();
+    }
+}
+function escapeHtml(s){ return s.replace(/[&<>]/g, function(m){ if(m==='&') return '&amp;'; if(m==='<') return '&lt;'; if(m==='>') return '&gt;'; return m; }); }
+
+function extractVideoId(url){
+    let m = url.match(/(?:youtu\.be\/|watch\?v=)([^&]+)/);
+    if(m) return m[1];
+    m = url.match(/embed\/([^?]+)/);
+    return m ? m[1] : null;
+}
+
+function connectSocket(){
+    let statusDiv = document.getElementById('status');
+    statusDiv.innerHTML = '🟡 Connecting...';
+    socket = io(BACKEND_URL, { transports: ['websocket', 'polling'], reconnection: true });
+    
+    socket.on('connect', () => {
+        statusDiv.innerHTML = '🟢 Connected! Create or join group';
+        let urlParams = new URLSearchParams(window.location.search);
+        let invite = urlParams.get('join');
+        if(invite && !groupId){
+            document.getElementById('groupIdInput').value = invite;
+            setTimeout(() => joinGroup(), 500);
+        }
+        if(groupId) socket.emit('rejoin-group', { groupId, userId: currentUsername });
+    });
+    
+    socket.on('connect_error', () => statusDiv.innerHTML = '🔴 Connection error! Retrying...');
+    
+    socket.on('group-created', (id) => {
+        groupId = id;
+        isAdmin = true;
+        statusDiv.innerHTML = '✅ Group created! ID: ' + id;
+        document.getElementById('groupIdContainer').style.display = 'block';
+        document.getElementById('groupIdBadge').innerText = '📋 ' + id;
+        document.getElementById('setupPanel').style.display = 'none';
+        document.getElementById('onlineContainer').style.display = 'block';
+        document.getElementById('adminPanel').style.display = 'block';
+        document.getElementById('closeGroupBtn').style.display = 'block';
+        groupCount++;
+        localStorage.setItem("aibow_groupCount", groupCount);
+        updateStats();
+    });
+    
+    socket.on('joined-group', (id) => {
+        groupId = id;
+        statusDiv.innerHTML = '✅ Joined group!';
+        document.getElementById('groupIdContainer').style.display = 'block';
+        document.getElementById('groupIdBadge').innerText = '📋 ' + id;
+        document.getElementById('setupPanel').style.display = 'none';
+        document.getElementById('onlineContainer').style.display = 'block';
+        socket.emit('check-admin', { groupId: id });
+        groupCount++;
+        localStorage.setItem("aibow_groupCount", groupCount);
+        updateStats();
+    });
+    
+    socket.on('admin-status', (admin) => {
+        isAdmin = admin;
+        document.getElementById('adminPanel').style.display = admin ? 'block' : 'none';
+        document.getElementById('closeGroupBtn').style.display = admin ? 'block' : 'none';
+    });
+    
+    socket.on('sync-video', (data) => {
+        if(data.videoId){
+            document.getElementById('videoPlayer').src = 'https://www.youtube.com/embed/' + data.videoId + '?autoplay=1';
+            videoCount++;
+            localStorage.setItem("aibow_videoCount", videoCount);
+            updateStats();
+        }
+    });
+    
+    socket.on('old-messages', (msgs) => {
+        let chatDiv = document.getElementById('chat');
+        chatDiv.innerHTML = '';
+        if(msgs) msgs.forEach(m => addMessage(m.user, m.text, m.time));
+    });
+    
+    socket.on('new-message', (m) => {
+        if(m.user !== currentUsername) addMessage(m.user, m.text, m.time);
+    });
+    
+    socket.on('online-users', (users) => {
+        let container = document.getElementById('onlineContainer');
+        let listDiv = document.getElementById('onlineList');
+        if(!users || users.length === 0){
+            container.style.display = 'none';
+            return;
+        }
+        container.style.display = 'block';
+        listDiv.innerHTML = '';
+        users.forEach(u => {
+            let name = (typeof u === 'object') ? u.name : u;
+            listDiv.innerHTML += `<span class="online-user"><span class="online-dot"></span>${escapeHtml(name)}</span>`;
+        });
+    });
+    
+    socket.on('group-closed', () => {
+        showAlert('Group closed by admin');
+        location.reload();
+    });
+    
+    socket.on('rejoin-group', (id) => {
+        groupId = id;
+        document.getElementById('groupIdContainer').style.display = 'block';
+        document.getElementById('groupIdBadge').innerText = '📋 ' + id;
+        document.getElementById('setupPanel').style.display = 'none';
+        document.getElementById('onlineContainer').style.display = 'block';
+    });
+}
+
+connectSocket();
+
+function createGroup(){ if(socket) socket.emit('create-group', { userId: currentUsername }); }
+function joinGroup(){
+    let id = document.getElementById('groupIdInput').value.trim();
+    if(!id){ showAlert('Enter Group ID'); return; }
+    if(socket) socket.emit('join-group', { groupId: id, userId: currentUsername });
+}
+function leaveGroup(){
+    if(!groupId){ showAlert('No group'); return; }
+    showConfirm('Leave Group', 'Are you sure?', () => {
+        socket.emit('leave-group', { groupId, userId: currentUsername });
+        setTimeout(() => location.reload(), 1000);
+    });
+}
+function closeGroup(){
+    if(!groupId || !isAdmin){ showAlert('Only admin'); return; }
+    showConfirm('Close Group', 'Delete group for everyone?', () => {
+        socket.emit('close-group', { groupId });
+        setTimeout(() => location.reload(), 1000);
+    });
+}
+function playVideo(){
+    let url = document.getElementById('videoUrl').value.trim();
+    let vid = extractVideoId(url);
+    if(vid){
+        document.getElementById('videoPlayer').src = 'https://www.youtube.com/embed/' + vid + '?autoplay=1';
+        socket.emit('play-video', { groupId, videoId: vid });
+        document.getElementById('videoUrl').value = '';
+    } else showAlert('Invalid YouTube link');
+}
+function sendMsg(){
+    let txt = document.getElementById('msgInput').value.trim();
+    if(!txt || !groupId){ showAlert('Join a group first'); return; }
+    addMessage(currentUsername, txt);
+    socket.emit('send-message', { groupId, msg: { user: currentUsername, text: txt, time: new Date().toLocaleTimeString() } });
+    document.getElementById('msgInput').value = '';
+}
+function shareGroup(){
+    let link = window.location.href.split('?')[0] + '?join=' + groupId;
+    if(navigator.share) navigator.share({ title: 'Join my group', url: link });
+    else { navigator.clipboard.writeText(link); showAlert('Invite link copied!'); }
+}
+function toggleMenu(e){
+    e.stopPropagation();
+    let m = document.getElementById('dropdownMenu');
+    m.style.display = m.style.display === 'block' ? 'none' : 'block';
+}
+document.addEventListener('click', (e) => {
+    let m = document.getElementById('dropdownMenu');
+    let btn = document.getElementById('menuBtn');
+    if(m && btn && !m.contains(e.target) && !btn.contains(e.target)) m.style.display = 'none';
+});
+
+document.getElementById('createBtn').onclick = createGroup;
+document.getElementById('joinBtn').onclick = joinGroup;
+document.getElementById('playBtn').onclick = playVideo;
+document.getElementById('sendBtn').onclick = sendMsg;
+document.getElementById('menuBtn').onclick = toggleMenu;
+document.getElementById('shareGroupBtn').onclick = shareGroup;
+document.getElementById('leaveGroupBtn').onclick = leaveGroup;
+document.getElementById('closeGroupBtn').onclick = closeGroup;
+document.getElementById('msgInput').addEventListener('keypress', (e) => { if(e.key === 'Enter') sendMsg(); });
+
+// Profile navigation
+document.getElementById('profileBtnFromSync').onclick = () => {
+    document.getElementById('syncSection').classList.remove('active');
+    document.getElementById('profileSection').classList.add('active');
+};
+document.getElementById('backToSyncBtn').onclick = () => {
+    document.getElementById('profileSection').classList.remove('active');
+    document.getElementById('syncSection').classList.add('active');
+};
+
+function showNameModal(){
+    document.getElementById('nameModal').classList.remove('hidden');
+    document.getElementById('newNameInput').value = currentUsername;
+}
+function hideNameModal(){ document.getElementById('nameModal').classList.add('hidden'); }
+function updateUsername(n){
+    if(n && n.trim() && n !== currentUsername){
+        let old = currentUsername;
+        currentUsername = n.trim();
+        localStorage.setItem('aibow_username', currentUsername);
+        document.getElementById('displayName').innerText = currentUsername;
+        if(socket && groupId) socket.emit('rename-user', { groupId, oldName: old, newName: currentUsername });
+        showAlert('Name updated!');
+    }
+    hideNameModal();
+}
+document.getElementById('modalConfirmBtn').onclick = () => updateUsername(document.getElementById('newNameInput').value.trim());
+document.getElementById('modalCancelBtn').onclick = hideNameModal;
+document.getElementById('editProfileBtn').onclick = showNameModal;
+</script>
+</body>
+</html>
